@@ -1,0 +1,1247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A·R·I·A — Control Center v4.2.1</title>
+<style>
+/* ─── RESET & ROOT ──────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:      #020d18;
+  --panel:   #041525;
+  --line:    rgba(0,200,255,.18);
+  --cyan:    #00c8ff;
+  --green:   #00e5a0;
+  --gold:    #ffc846;
+  --red:     #ff4060;
+  --teal:    #00d4d4;
+  --blue:    #4da6ff;
+  --purple:  #b06aff;
+  --dim:     rgba(0,200,255,.45);
+  --txt:     rgba(180,230,255,.9);
+  --txt2:    rgba(120,190,220,.6);
+  --fnt:     'Courier New', monospace;
+}
+
+html, body {
+  width: 100%; height: 100%; overflow: hidden;
+  background: var(--bg);
+  color: var(--txt);
+  font-family: var(--fnt);
+  font-size: 12px;
+  user-select: none;
+}
+
+/* ─── SCAN-LINE OVERLAY ─────────────────────────────────────────────── */
+body::before {
+  content: '';
+  position: fixed; inset: 0; pointer-events: none; z-index: 9999;
+  background: repeating-linear-gradient(
+    0deg, transparent, transparent 2px,
+    rgba(0,0,0,.08) 2px, rgba(0,0,0,.08) 4px
+  );
+}
+
+/* ─── CORNER BRACKETS ───────────────────────────────────────────────── */
+.corner {
+  position: fixed; width: 22px; height: 22px; z-index: 100;
+  border-color: var(--cyan); border-style: solid;
+}
+.corner.tl { top: 6px; left: 6px;  border-width: 2px 0 0 2px; }
+.corner.tr { top: 6px; right: 6px; border-width: 2px 2px 0 0; }
+.corner.bl { bottom: 6px; left: 6px;  border-width: 0 0 2px 2px; }
+.corner.br { bottom: 6px; right: 6px; border-width: 0 2px 2px 0; }
+
+/* ─── TOOLTIP ───────────────────────────────────────────────────────── */
+#tip {
+  position: fixed; display: none; pointer-events: none; z-index: 8888;
+  background: rgba(2,16,32,.97);
+  border: 1px solid var(--cyan);
+  border-radius: 4px;
+  padding: 8px 12px;
+  max-width: 260px;
+  box-shadow: 0 0 18px rgba(0,200,255,.25);
+}
+#tip-title { color: var(--cyan); font-size: 11px; font-weight: bold; margin-bottom: 4px; }
+#tip-body  { color: var(--txt2); font-size: 10px; line-height: 1.5; white-space: pre-line; }
+
+/* ─── HEADER ────────────────────────────────────────────────────────── */
+#header {
+  display: flex; align-items: center; justify-content: space-between;
+  height: 58px; padding: 0 18px;
+  background: linear-gradient(180deg, rgba(0,40,70,.85) 0%, rgba(2,16,32,.95) 100%);
+  border-bottom: 1px solid var(--line);
+}
+.logo-text { font-size: 22px; letter-spacing: .25em; color: var(--cyan); font-weight: bold; text-shadow: 0 0 12px var(--cyan); }
+.logo-sub  { font-size: 9px; color: var(--txt2); letter-spacing: .12em; margin-top: 1px; }
+
+.hdr-center { display: flex; align-items: center; gap: 14px; }
+.hdr-stat   { text-align: center; }
+.hdr-stat-val { font-size: 16px; color: var(--cyan); letter-spacing: .05em; }
+.hdr-stat-lbl { font-size: 9px;  color: var(--txt2); letter-spacing: .1em; margin-top: 1px; }
+
+.hdr-right  { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.badge {
+  font-size: 9px; padding: 2px 8px; border-radius: 2px;
+  letter-spacing: .08em; font-weight: bold;
+}
+.badge.live { background: rgba(0,229,160,.15); border: 1px solid var(--green); color: var(--green); }
+.badge.warn { background: rgba(255,200,70,.12); border: 1px solid var(--gold);  color: var(--gold);  }
+.badge.crit { background: rgba(255,64,96,.15);  border: 1px solid var(--red);   color: var(--red);   }
+
+#clock { font-size: 11px; color: var(--cyan); letter-spacing: .12em; margin-top: 2px; }
+
+/* ─── TAB BAR ───────────────────────────────────────────────────────── */
+#tabBar {
+  display: flex; height: 36px;
+  background: rgba(0,20,38,.9);
+  border-bottom: 1px solid var(--line);
+}
+.tab {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  gap: 6px; font-size: 10px; letter-spacing: .1em; cursor: pointer;
+  color: var(--txt2); transition: color .2s, background .2s;
+  border-right: 1px solid var(--line);
+}
+.tab:last-child { border-right: none; }
+.tab:hover  { color: var(--cyan); background: rgba(0,200,255,.05); }
+.tab.active { color: var(--cyan); background: rgba(0,200,255,.08); border-bottom: 2px solid var(--cyan); }
+.tab-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--txt2); transition: background .2s;
+}
+.tab.active .tab-dot { background: var(--cyan); box-shadow: 0 0 6px var(--cyan); }
+
+/* ─── MAIN APP LAYOUT ───────────────────────────────────────────────── */
+#app {
+  display: flex;
+  height: calc(100vh - 58px - 36px);
+  overflow: hidden;
+}
+
+/* ─── PANES ─────────────────────────────────────────────────────────── */
+.pane {
+  display: flex; flex-direction: column; gap: 0;
+  overflow-y: auto; overflow-x: hidden;
+  scrollbar-width: thin; scrollbar-color: var(--line) transparent;
+}
+.pane::-webkit-scrollbar { width: 4px; }
+.pane::-webkit-scrollbar-thumb { background: var(--line); border-radius: 2px; }
+
+#leftPane  { width: 220px; min-width: 220px; border-right: 1px solid var(--line); padding: 10px 8px; }
+#centerPane { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+#rightPane { width: 240px; min-width: 240px; border-left: 1px solid var(--line); padding: 10px 8px; }
+
+.pane-hdr {
+  font-size: 10px; letter-spacing: .15em; color: var(--cyan);
+  border-bottom: 1px solid var(--line); padding-bottom: 4px; margin-bottom: 8px;
+}
+
+/* ─── SECTIONS & ROWS ───────────────────────────────────────────────── */
+.sect { margin-bottom: 12px; }
+.sect-lbl { font-size: 9px; color: var(--txt2); letter-spacing: .12em; margin-bottom: 5px; text-transform: uppercase; }
+
+.mrow { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; }
+.mname { font-size: 10px; color: var(--txt2); }
+.mval  { font-size: 10px; font-weight: bold; }
+.mval.ok   { color: var(--green); }
+.mval.warn { color: var(--gold); }
+.mval.crit { color: var(--red); }
+.mval.blue { color: var(--blue); }
+
+.mbar { height: 4px; background: rgba(255,255,255,.06); border-radius: 2px; margin-bottom: 6px; overflow: hidden; }
+.mbar-fill { height: 100%; border-radius: 2px; transition: width 1s ease; }
+.mbar-fill.green  { background: linear-gradient(90deg, var(--green), rgba(0,229,160,.4)); }
+.mbar-fill.gold   { background: linear-gradient(90deg, var(--gold),  rgba(255,200,70,.4)); }
+.mbar-fill.blue   { background: linear-gradient(90deg, var(--blue),  rgba(77,166,255,.4)); }
+.mbar-fill.teal   { background: linear-gradient(90deg, var(--teal),  rgba(0,212,212,.4)); }
+.mbar-fill.red    { background: linear-gradient(90deg, var(--red),   rgba(255,64,96,.4)); }
+.mbar-fill.purple { background: linear-gradient(90deg, var(--purple),rgba(176,106,255,.4)); }
+
+/* ─── MODULE CARDS ──────────────────────────────────────────────────── */
+.mod-card {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(0,30,50,.6); border: 1px solid var(--line);
+  border-radius: 4px; padding: 6px 8px; margin-bottom: 5px; cursor: default;
+  transition: border-color .2s, background .2s;
+}
+.mod-card:hover, .mod-card.active-mod { border-color: var(--cyan); background: rgba(0,200,255,.06); }
+.mod-ico  { font-size: 18px; }
+.mod-info { flex: 1; }
+.mod-name { font-size: 10px; color: var(--cyan); font-weight: bold; letter-spacing: .05em; }
+.mod-desc { font-size: 9px; color: var(--txt2); margin-top: 1px; }
+.mod-status { font-size: 9px; font-weight: bold; padding: 2px 5px; border-radius: 2px; }
+.mod-status.stby { background: rgba(255,200,70,.15); color: var(--gold); border: 1px solid var(--gold); }
+.mod-status.rdy  { background: rgba(0,229,160,.15);  color: var(--green); border: 1px solid var(--green); }
+.mod-status.act  { background: rgba(0,200,255,.18);  color: var(--cyan);  border: 1px solid var(--cyan); }
+.mod-status.off  { background: rgba(255,255,255,.05); color: var(--txt2); border: 1px solid var(--line); }
+
+/* ─── CENTER — TAB VIEWS ────────────────────────────────────────────── */
+.tab-view { display: none; flex: 1; overflow: hidden; }
+.tab-view.show { display: flex; }
+
+/* Blueprint tab */
+#view-main {
+  flex-direction: row;
+  align-items: stretch;
+}
+#blueprintWrap {
+  flex: 1;
+  display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(ellipse at 50% 50%, rgba(0,100,180,.07) 0%, transparent 70%);
+  padding: 10px;
+  position: relative;
+}
+#blueprintWrap svg { max-width: 100%; max-height: 100%; }
+
+/* Other tab content areas */
+.tab-content {
+  flex: 1; padding: 16px 20px; overflow-y: auto;
+  scrollbar-width: thin; scrollbar-color: var(--line) transparent;
+}
+.tab-content::-webkit-scrollbar { width: 4px; }
+.tab-content::-webkit-scrollbar-thumb { background: var(--line); border-radius: 2px; }
+
+.content-title {
+  font-size: 13px; color: var(--cyan); letter-spacing: .15em;
+  border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 14px;
+}
+.content-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.info-card {
+  background: rgba(0,30,50,.7); border: 1px solid var(--line);
+  border-radius: 4px; padding: 10px 12px;
+}
+.info-card-title { font-size: 10px; color: var(--cyan); letter-spacing: .1em; margin-bottom: 8px; }
+.info-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+.info-lbl { font-size: 10px; color: var(--txt2); }
+.info-val { font-size: 10px; font-weight: bold; color: var(--txt); }
+.info-val.ok   { color: var(--green); }
+.info-val.warn { color: var(--gold); }
+.info-val.crit { color: var(--red); }
+
+/* Control buttons */
+.ctrl-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 6px 14px; font-family: var(--fnt); font-size: 10px;
+  letter-spacing: .1em; cursor: pointer; border-radius: 3px;
+  transition: all .2s; border: 1px solid var(--line); background: transparent;
+  color: var(--txt2);
+}
+.ctrl-btn:hover { border-color: var(--cyan); color: var(--cyan); background: rgba(0,200,255,.08); }
+.ctrl-btn.green { border-color: var(--green); color: var(--green); }
+.ctrl-btn.green:hover { background: rgba(0,229,160,.1); }
+.ctrl-btn.gold  { border-color: var(--gold);  color: var(--gold); }
+.ctrl-btn.gold:hover  { background: rgba(255,200,70,.1); }
+.ctrl-btn.red   { border-color: var(--red);   color: var(--red); }
+.ctrl-btn.red:hover   { background: rgba(255,64,96,.1); }
+.ctrl-btn.cyan  { border-color: var(--cyan);  color: var(--cyan); }
+.ctrl-btn.cyan:hover  { background: rgba(0,200,255,.12); }
+.btn-row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+
+/* Radar canvas area */
+#radarCanvas {
+  border: 1px solid var(--line); border-radius: 50%;
+  background: radial-gradient(circle, rgba(0,40,60,.8) 0%, rgba(0,10,20,.95) 100%);
+}
+
+/* Separator */
+.sep { height: 1px; background: var(--line); margin: 10px 0; }
+
+/* ─── RIGHT PANE ────────────────────────────────────────────────────── */
+.target-item {
+  background: rgba(0,30,50,.6); border: 1px solid var(--line);
+  border-radius: 4px; padding: 7px 9px; margin-bottom: 6px; cursor: default;
+  transition: border-color .2s;
+}
+.target-item:hover { border-color: var(--cyan); }
+.target-hdr { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; }
+.target-id  { font-size: 10px; color: var(--cyan); font-weight: bold; }
+.target-pri { font-size: 9px; padding: 1px 5px; border-radius: 2px; }
+.target-pri.hi  { background: rgba(255,64,96,.15); color: var(--red); border: 1px solid var(--red); }
+.target-pri.med { background: rgba(255,200,70,.12); color: var(--gold); border: 1px solid var(--gold); }
+.target-pri.lo  { background: rgba(0,229,160,.1);  color: var(--green); border: 1px solid var(--green); }
+.target-meta { font-size: 9px; color: var(--txt2); line-height: 1.6; }
+
+.log-entry {
+  font-size: 9px; color: var(--txt2); padding: 3px 0;
+  border-bottom: 1px solid rgba(0,200,255,.07);
+  display: flex; gap: 6px;
+}
+.log-time  { color: var(--dim); min-width: 52px; }
+.log-msg   { flex: 1; }
+.log-msg.ok   { color: rgba(0,229,160,.8); }
+.log-msg.warn { color: rgba(255,200,70,.8); }
+.log-msg.crit { color: rgba(255,64,96,.8); }
+
+/* ─── ANIMATIONS ────────────────────────────────────────────────────── */
+@keyframes spin360 { to { transform: rotate(360deg); } }
+@keyframes spin-rev { to { transform: rotate(-360deg); } }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
+@keyframes pulse-glow {
+  0%,100% { filter: drop-shadow(0 0 4px var(--cyan)); }
+  50%      { filter: drop-shadow(0 0 12px var(--cyan)); }
+}
+@keyframes sweep {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes fadein { from { opacity:0; transform: translateY(4px); } to { opacity:1; transform: none; } }
+
+.tab-view.show { animation: fadein .25s ease; }
+
+/* ─── FULLSCREEN BACKGROUND STARS ───────────────────────────────────── */
+#stars {
+  position: fixed; inset: 0; pointer-events: none; z-index: 0;
+}
+</style>
+</head>
+<body>
+
+<!-- Stars background -->
+<canvas id="stars"></canvas>
+
+<!-- Corner brackets -->
+<div class="corner tl"></div>
+<div class="corner tr"></div>
+<div class="corner bl"></div>
+<div class="corner br"></div>
+
+<!-- Tooltip -->
+<div id="tip"><div id="tip-title"></div><div id="tip-body"></div></div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     HEADER
+══════════════════════════════════════════════════════════════════ -->
+<div id="header">
+  <div>
+    <div class="logo-text">A·R·I·A</div>
+    <div class="logo-sub">Autonomous Remediation &amp; Interception Architecture · v4.2.1</div>
+  </div>
+
+  <div class="hdr-center">
+    <div class="hdr-stat">
+      <div class="hdr-stat-val" id="hdAlt">549.4<span style="font-size:9px"> km</span></div>
+      <div class="hdr-stat-lbl">Altitude</div>
+    </div>
+    <div style="width:1px;height:30px;background:var(--line)"></div>
+    <div class="hdr-stat">
+      <div class="hdr-stat-val" id="hdVel">7,614<span style="font-size:9px"> m/s</span></div>
+      <div class="hdr-stat-lbl">Velocity</div>
+    </div>
+    <div style="width:1px;height:30px;background:var(--line)"></div>
+    <div class="hdr-stat">
+      <div class="hdr-stat-val" style="color:var(--green)" id="hdInc">97.4°</div>
+      <div class="hdr-stat-lbl">Inclination</div>
+    </div>
+    <div style="width:1px;height:30px;background:var(--line)"></div>
+    <div class="hdr-stat">
+      <div class="hdr-stat-val" style="color:var(--gold)" id="hdTargets">4</div>
+      <div class="hdr-stat-lbl">Targets</div>
+    </div>
+    <div style="width:1px;height:30px;background:var(--line)"></div>
+    <div class="hdr-stat">
+      <div class="hdr-stat-val" style="color:var(--teal)" id="hdXenon">63<span style="font-size:9px">%</span></div>
+      <div class="hdr-stat-lbl">Xenon</div>
+    </div>
+  </div>
+
+  <div class="hdr-right">
+    <div class="badge live">● MISSION ACTIVE</div>
+    <div class="badge warn">⚠ 2 CONJUNCTIONS</div>
+    <div class="badge crit">★ CRIT TARGET</div>
+    <div id="clock">--:--:--</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     TAB BAR
+══════════════════════════════════════════════════════════════════ -->
+<div id="tabBar">
+  <div class="tab active" onclick="setTab(this,'main')"><span class="tab-dot"></span>BLUEPRINT</div>
+  <div class="tab" onclick="setTab(this,'qras')"><span class="tab-dot"></span>QRAS ARMS</div>
+  <div class="tab" onclick="setTab(this,'laser')"><span class="tab-dot"></span>LASER TURRET</div>
+  <div class="tab" onclick="setTab(this,'net')"><span class="tab-dot"></span>NET SYSTEM</div>
+  <div class="tab" onclick="setTab(this,'radar')"><span class="tab-dot"></span>RADAR / TRACK</div>
+  <div class="tab" onclick="setTab(this,'mining')"><span class="tab-dot"></span>MINING MODULE</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     APP
+══════════════════════════════════════════════════════════════════ -->
+<div id="app">
+
+  <!-- ════ LEFT PANE ════ -->
+  <div class="pane" id="leftPane">
+    <div class="pane-hdr">SYSTEM STATUS</div>
+
+    <!-- Propulsion -->
+    <div class="sect">
+      <div class="sect-lbl">Propulsion</div>
+      <div class="mrow"><span class="mname">Ion ISP</span><span class="mval ok" id="isp">3,024 s</span></div>
+      <div class="mbar"><div class="mbar-fill green" id="ispBar" style="width:87%"></div></div>
+      <div class="mrow"><span class="mname">Xenon</span><span class="mval warn" id="xeVal">63%</span></div>
+      <div class="mbar"><div class="mbar-fill gold" id="xeBar" style="width:63%"></div></div>
+      <div class="mrow"><span class="mname">RCS Hydrazine</span><span class="mval ok" id="rcsVal">91%</span></div>
+      <div class="mbar"><div class="mbar-fill green" id="rcsBar" style="width:91%"></div></div>
+      <div class="mrow"><span class="mname">Cold Gas N₂</span><span class="mval ok" id="cgVal">78%</span></div>
+      <div class="mbar"><div class="mbar-fill blue" id="cgBar" style="width:78%"></div></div>
+    </div>
+
+    <!-- Power & Thermal -->
+    <div class="sect">
+      <div class="sect-lbl">Power &amp; Thermal</div>
+      <div class="mrow"><span class="mname">Solar Output</span><span class="mval ok" id="pvOut">17.8 kW</span></div>
+      <div class="mbar"><div class="mbar-fill green" id="pvBar" style="width:99%"></div></div>
+      <div class="mrow"><span class="mname">Battery</span><span class="mval ok" id="batVal">84%</span></div>
+      <div class="mbar"><div class="mbar-fill teal" id="batBar" style="width:84%"></div></div>
+      <div class="mrow"><span class="mname">Core Temp</span><span class="mval warn" id="coreTemp">+38 °C</span></div>
+      <div class="mbar"><div class="mbar-fill gold" id="tempBar" style="width:52%"></div></div>
+      <div class="mrow"><span class="mname">Laser Power Bus</span><span class="mval ok">6.0 kW</span></div>
+      <div class="mbar"><div class="mbar-fill blue" style="width:100%"></div></div>
+    </div>
+
+    <!-- Capture Modules -->
+    <div class="sect">
+      <div class="sect-lbl">Capture Modules</div>
+      <div class="mod-card active-mod" id="mc-qras"
+           onmouseenter="tip(event,'QRAS — Robotic Arm System','4× 3.5 m articulated arms · 14 DOF each\nHold force: 3,200 N total\nGrippers: universal / soft / magnetic\nTumble-match AI: ±0.01°/s precision\nStatus: STANDBY')"
+           onmouseleave="hideTip()">
+        <span class="mod-ico">🦾</span>
+        <div class="mod-info"><div class="mod-name">QRAS</div><div class="mod-desc">4-arm capture · 3.5 m reach</div></div>
+        <div class="mod-status stby">STBY</div>
+      </div>
+      <div class="mod-card"
+           onmouseenter="tip(event,'NDS — Net Deployment System','6 canisters · 15×15 m CNT mesh\nCorner weights + SMA cinch cables\nRange: 5–50 m · Magazine: 8 nets\nStatus: READY — 6/8 remaining')"
+           onmouseleave="hideTip()">
+        <span class="mod-ico">🕸️</span>
+        <div class="mod-info"><div class="mod-name">NDS</div><div class="mod-desc">Net deploy · 15×15 m CNT mesh</div></div>
+        <div class="mod-status rdy">RDY</div>
+      </div>
+      <div class="mod-card"
+           onmouseenter="tip(event,'LDS — Laser Ablation Turret','Wavelength: 1064 nm Nd:YAG\nPeak power: 50 kW pulses\nPointing accuracy: 0.001°\nDebris momentum: ΔV up to 2 m/s\nStatus: STANDBY')"
+           onmouseleave="hideTip()">
+        <span class="mod-ico">⚡</span>
+        <div class="mod-info"><div class="mod-name">LDS</div><div class="mod-desc">Laser ablation · 50 kW peak</div></div>
+        <div class="mod-status stby">STBY</div>
+      </div>
+      <div class="mod-card"
+           onmouseenter="tip(event,'MDS — Mining & Processing','Regolith drill: 80 cm depth\nSpectral analyzer: XRF + LIBS\nOre hoppers: 3× 200 kg\nExtracted: 847 kg cumulative\nStatus: OFFLINE')"
+           onmouseleave="hideTip()">
+        <span class="mod-ico">⛏️</span>
+        <div class="mod-info"><div class="mod-name">MDS</div><div class="mod-desc">Drill + XRF · 200 kg hopper</div></div>
+        <div class="mod-status off">OFF</div>
+      </div>
+    </div>
+
+    <!-- Comms -->
+    <div class="sect">
+      <div class="sect-lbl">Communications</div>
+      <div class="mrow"><span class="mname">S-Band Uplink</span><span class="mval ok">32 kbps</span></div>
+      <div class="mbar"><div class="mbar-fill teal" style="width:40%"></div></div>
+      <div class="mrow"><span class="mname">X-Band Downlink</span><span class="mval ok">8 Mbps</span></div>
+      <div class="mbar"><div class="mbar-fill green" style="width:80%"></div></div>
+      <div class="mrow"><span class="mname">Laser Comm (ISL)</span><span class="mval warn">SEARCHING</span></div>
+      <div class="mbar"><div class="mbar-fill gold" style="width:20%"></div></div>
+    </div>
+  </div>
+  <!-- ────────────────── END LEFT PANE ────────────────── -->
+
+  <!-- ════ CENTER PANE ════ -->
+  <div id="centerPane">
+
+    <!-- ── BLUEPRINT tab ── -->
+    <div class="tab-view show" id="view-main">
+      <div id="blueprintWrap">
+        <svg viewBox="0 0 960 520" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%">
+          <defs>
+            <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="rgba(0,200,255,.35)"/>
+              <stop offset="100%" stop-color="rgba(0,200,255,0)"/>
+            </radialGradient>
+            <linearGradient id="solarFill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="rgba(0,60,130,.65)"/>
+              <stop offset="100%" stop-color="rgba(0,30,80,.45)"/>
+            </linearGradient>
+            <filter id="glo" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="3" result="b"/>
+              <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+            <filter id="gloHi" x="-80%" y="-80%" width="260%" height="260%">
+              <feGaussianBlur stdDeviation="5" result="b"/>
+              <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+            <filter id="gloG" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="2" result="b"/>
+              <feFlood flood-color="rgba(0,229,160,.4)" result="c"/>
+              <feComposite in="c" in2="b" operator="in" result="d"/>
+              <feMerge><feMergeNode in="d"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+
+          <!-- ── Grid lines ── -->
+          <g stroke="rgba(0,200,255,.06)" stroke-width=".5">
+            <line x1="0" y1="130" x2="960" y2="130"/>
+            <line x1="0" y1="260" x2="960" y2="260"/>
+            <line x1="0" y1="390" x2="960" y2="390"/>
+            <line x1="240" y1="0" x2="240" y2="520"/>
+            <line x1="480" y1="0" x2="480" y2="520"/>
+            <line x1="720" y1="0" x2="720" y2="520"/>
+          </g>
+
+          <!-- ── SOLAR ARRAYS ── -->
+          <!-- Port -->
+          <g onmouseenter="tip(event,'Solar Array — Port','Span: 7.4 m per panel pair\nArea: 14 m² (port) + 14 m² (stbd)\nOutput: 18 kW continuous\nLi-S battery bank: 240 kWh\nDeployable / stowable on orbit')" onmouseleave="hideTip()" style="cursor:pointer">
+            <rect x="184" y="200" width="218" height="38" rx="3" fill="url(#solarFill)" stroke="rgba(0,200,255,.75)" stroke-width="1.3"/>
+            <line x1="215" y1="200" x2="215" y2="238" stroke="rgba(0,200,255,.22)" stroke-width=".6"/>
+            <line x1="246" y1="200" x2="246" y2="238" stroke="rgba(0,200,255,.22)" stroke-width=".6"/>
+            <line x1="277" y1="200" x2="277" y2="238" stroke="rgba(0,200,255,.22)" stroke-width=".6"/>
+            <line x1="308" y1="200" x2="308" y2="238" stroke="rgba(0,200,255,.22)" stroke-width=".6"/>
+            <line x1="339" y1="200" x2="339" y2="238" stroke="rgba(0,200,255,.22)" stroke-width=".6"/>
+            <line x1="370" y1="200" x2="370" y2="238" stroke="rgba(0,200,255,.22)" stroke-width=".6"/>
+            <line x1="184" y1="219" x2="402" y2="219" stroke="rgba(0,200,255,.18)" stroke-width=".5"/>
+            <rect x="184" y="200" width="218" height="38" rx="3" fill="none" stroke="rgba(0,220,255,.3)" stroke-width=".5">
+              <animate attributeName="opacity" values=".3;.8;.3" dur="3s" repeatCount="indefinite"/>
+            </rect>
+            <text x="293" y="255" text-anchor="middle" fill="rgba(0,200,255,.5)" font-size="8" font-family="monospace">SOLAR — PORT</text>
+          </g>
+          <!-- Starboard -->
+          <g onmouseenter="tip(event,'Solar Array — Starboard','Span: 7.4 m per panel pair\nArea: 14 m² (port) + 14 m² (stbd)\nOutput: 18 kW continuous\nLi-S battery bank: 240 kWh')" onmouseleave="hideTip()" style="cursor:pointer">
+            <rect x="558" y="200" width="218" height="38" rx="3" fill="url(#solarFill)" stroke="rgba(0,200,255,.75)" stroke-width="1.3"/>
+            <line x1="589" y1="200" x2="589" y2="238" stroke="rgba(0,200,255,.22)" stroke-width=".6"/>
+            <line x1="620" y1="200" x2="620" y2="238" stroke="rgba(0,200,255,.22)" stroke-width=".6"/>
+            <line x1="651" y1="200" x2="651" y2="238" stroke="rgba(0,200,255,.22)" stroke-width=".6"/>
+            <line x1="682" y1="200" x2="682" y2="238" stroke="rgba(0,200,255,.22)" stroke-width=".6"/>
+            <line x1="713" y1="200" x2="713" y2="238" stroke="rgba(0,200,255,.22)" stroke-width=".6"/>
+            <line x1="744" y1="200" x2="744" y2="238" stroke="rgba(0,200,255,.22)" stroke-width=".6"/>
+            <line x1="558" y1="219" x2="776" y2="219" stroke="rgba(0,200,255,.18)" stroke-width=".5"/>
+            <rect x="558" y="200" width="218" height="38" rx="3" fill="none" stroke="rgba(0,220,255,.3)" stroke-width=".5">
+              <animate attributeName="opacity" values=".3;.8;.3" dur="3.4s" repeatCount="indefinite"/>
+            </rect>
+            <text x="667" y="255" text-anchor="middle" fill="rgba(0,200,255,.5)" font-size="8" font-family="monospace">SOLAR — STBD</text>
+          </g>
+
+          <!-- ── Main bus body ── -->
+          <g onmouseenter="tip(event,'Main Bus Structure','Dimensions: 3.2 × 1.8 × 1.6 m\nMass (dry): 1,840 kg\nStructure: Al-Li alloy + CFRP\nRadiation tolerance: 150 krad')" onmouseleave="hideTip()" style="cursor:pointer">
+            <rect x="402" y="180" width="156" height="116" rx="6" fill="rgba(0,30,60,.7)" stroke="rgba(0,200,255,.6)" stroke-width="1.5"/>
+            <!-- Bus details -->
+            <rect x="414" y="192" width="132" height="92" rx="3" fill="none" stroke="rgba(0,200,255,.15)" stroke-width=".8"/>
+            <line x1="480" y1="192" x2="480" y2="284" stroke="rgba(0,200,255,.12)" stroke-width=".6"/>
+            <line x1="402" y1="238" x2="558" y2="238" stroke="rgba(0,200,255,.12)" stroke-width=".6"/>
+          </g>
+
+          <!-- ── SOLAR ARRAY BOOMS ── -->
+          <line x1="402" y1="219" x2="404" y2="219" stroke="rgba(0,200,255,.6)" stroke-width="2"/>
+          <line x1="558" y1="219" x2="556" y2="219" stroke="rgba(0,200,255,.6)" stroke-width="2"/>
+
+          <!-- ── CORE ── -->
+          <circle cx="480" cy="238" r="28" fill="url(#coreGlow)"/>
+          <circle cx="480" cy="238" r="22" fill="rgba(0,150,255,.12)" stroke="rgba(0,200,255,.6)" stroke-width="1.5"/>
+          <circle cx="480" cy="238" r="13" fill="rgba(0,200,255,.18)" stroke="rgba(0,200,255,.4)" stroke-width="1"/>
+          <circle cx="480" cy="238" r="5" fill="rgba(0,220,255,.9)" filter="url(#gloHi)">
+            <animate attributeName="r" values="5;7;5" dur="2s" repeatCount="indefinite"/>
+            <animate attributeName="opacity" values=".9;.3;.9" dur="2s" repeatCount="indefinite"/>
+          </circle>
+          <!-- Rotating ring -->
+          <g style="transform-origin:480px 238px; animation:spin360 8s linear infinite">
+            <circle cx="480" cy="238" r="18" fill="none" stroke="rgba(0,200,255,.3)" stroke-width=".8" stroke-dasharray="3 4"/>
+          </g>
+
+          <!-- ── ION THRUSTERS (aft) ── -->
+          <g onmouseenter="tip(event,'Hall-Effect Ion Thrusters','6× clustered 5 kW Hall thrusters\nISP: 3,000 s · Total thrust: 180 mN\nPropellant: Xenon gas\nUsed for: orbital plane changes,\n  rendezvous burn sequences')" onmouseleave="hideTip()" style="cursor:pointer">
+            <rect x="432" y="296" width="96" height="42" rx="4" fill="rgba(0,200,255,.07)" stroke="rgba(0,200,255,.6)" stroke-width="1.4"/>
+            <circle cx="452" cy="317" r="8" fill="rgba(0,200,255,.18)" stroke="rgba(0,200,255,.9)" stroke-width="1.2" filter="url(#glo)"/>
+            <circle cx="480" cy="317" r="8" fill="rgba(0,200,255,.18)" stroke="rgba(0,200,255,.9)" stroke-width="1.2" filter="url(#glo)"/>
+            <circle cx="508" cy="317" r="8" fill="rgba(0,200,255,.18)" stroke="rgba(0,200,255,.9)" stroke-width="1.2" filter="url(#glo)"/>
+            <circle cx="452" cy="317" r="3" fill="rgba(0,220,255,.8)"><animate attributeName="opacity" values=".8;.2;.8" dur=".4s" repeatCount="indefinite"/></circle>
+            <circle cx="480" cy="317" r="3" fill="rgba(0,220,255,.8)"><animate attributeName="opacity" values=".8;.2;.8" dur=".5s" repeatCount="indefinite"/></circle>
+            <circle cx="508" cy="317" r="3" fill="rgba(0,220,255,.8)"><animate attributeName="opacity" values=".8;.2;.8" dur=".45s" repeatCount="indefinite"/></circle>
+            <!-- Plume -->
+            <ellipse cx="452" cy="344" rx="5" ry="9" fill="rgba(0,150,255,.15)" filter="url(#glo)"><animate attributeName="opacity" values=".15;.4;.15" dur=".4s" repeatCount="indefinite"/></ellipse>
+            <ellipse cx="480" cy="344" rx="5" ry="9" fill="rgba(0,150,255,.15)" filter="url(#glo)"><animate attributeName="opacity" values=".15;.4;.15" dur=".5s" repeatCount="indefinite"/></ellipse>
+            <ellipse cx="508" cy="344" rx="5" ry="9" fill="rgba(0,150,255,.15)" filter="url(#glo)"><animate attributeName="opacity" values=".15;.4;.15" dur=".45s" repeatCount="indefinite"/></ellipse>
+            <text x="480" y="350" text-anchor="middle" fill="rgba(0,200,255,.5)" font-size="8" font-family="monospace">ION THRUSTERS</text>
+          </g>
+
+          <!-- ── QRAS ARMS ── -->
+          <!-- Arm 1 (front-port) -->
+          <g onmouseenter="tip(event,'QRAS Arm #1','DOF: 14 · Reach: 3.5 m\nGripper: universal jaw\nStatus: STANDBY')" onmouseleave="hideTip()" style="cursor:pointer">
+            <line x1="430" y1="195" x2="368" y2="148" stroke="rgba(0,229,160,.7)" stroke-width="2"/>
+            <line x1="368" y1="148" x2="310" y2="118" stroke="rgba(0,229,160,.6)" stroke-width="1.5"/>
+            <circle cx="430" cy="195" r="4" fill="var(--green)" filter="url(#gloG)"/>
+            <circle cx="310" cy="118" r="5" fill="rgba(0,229,160,.4)" stroke="var(--green)" stroke-width="1.2"/>
+          </g>
+          <!-- Arm 2 (front-stbd) -->
+          <g onmouseenter="tip(event,'QRAS Arm #2','DOF: 14 · Reach: 3.5 m\nGripper: magnetic pad\nStatus: STANDBY')" onmouseleave="hideTip()" style="cursor:pointer">
+            <line x1="530" y1="195" x2="592" y2="148" stroke="rgba(0,229,160,.7)" stroke-width="2"/>
+            <line x1="592" y1="148" x2="650" y2="118" stroke="rgba(0,229,160,.6)" stroke-width="1.5"/>
+            <circle cx="530" cy="195" r="4" fill="var(--green)" filter="url(#gloG)"/>
+            <circle cx="650" cy="118" r="5" fill="rgba(0,229,160,.4)" stroke="var(--green)" stroke-width="1.2"/>
+          </g>
+          <!-- Arm 3 (aft-port) -->
+          <g onmouseenter="tip(event,'QRAS Arm #3','DOF: 14 · Reach: 3.5 m\nGripper: soft conformable\nStatus: STANDBY')" onmouseleave="hideTip()" style="cursor:pointer">
+            <line x1="430" y1="278" x2="368" y2="328" stroke="rgba(0,229,160,.7)" stroke-width="2"/>
+            <line x1="368" y1="328" x2="310" y2="358" stroke="rgba(0,229,160,.6)" stroke-width="1.5"/>
+            <circle cx="430" cy="278" r="4" fill="var(--green)" filter="url(#gloG)"/>
+            <circle cx="310" cy="358" r="5" fill="rgba(0,229,160,.4)" stroke="var(--green)" stroke-width="1.2"/>
+          </g>
+          <!-- Arm 4 (aft-stbd) -->
+          <g onmouseenter="tip(event,'QRAS Arm #4','DOF: 14 · Reach: 3.5 m\nGripper: universal jaw\nStatus: STANDBY')" onmouseleave="hideTip()" style="cursor:pointer">
+            <line x1="530" y1="278" x2="592" y2="328" stroke="rgba(0,229,160,.7)" stroke-width="2"/>
+            <line x1="592" y1="328" x2="650" y2="358" stroke="rgba(0,229,160,.6)" stroke-width="1.5"/>
+            <circle cx="530" cy="278" r="4" fill="var(--green)" filter="url(#gloG)"/>
+            <circle cx="650" cy="358" r="5" fill="rgba(0,229,160,.4)" stroke="var(--green)" stroke-width="1.2"/>
+          </g>
+
+          <!-- ── LASER TURRET ── -->
+          <g onmouseenter="tip(event,'LDS Laser Ablation Turret','Wavelength: 1064 nm Nd:YAG pulsed\nPeak power: 50 kW · PRF: 10 Hz\nBeam divergence: 0.001° (pointing)\nRange: up to 2 km effective\nCooling: active radiator loop')" onmouseleave="hideTip()" style="cursor:pointer">
+            <rect x="462" y="156" width="36" height="28" rx="3" fill="rgba(255,64,96,.1)" stroke="rgba(255,64,96,.7)" stroke-width="1.2"/>
+            <line x1="480" y1="156" x2="480" y2="136" stroke="rgba(255,64,96,.8)" stroke-width="1.5"/>
+            <circle cx="480" cy="130" r="5" fill="rgba(255,64,96,.3)" stroke="var(--red)" stroke-width="1.2" filter="url(#glo)">
+              <animate attributeName="opacity" values="1;.3;1" dur="1.5s" repeatCount="indefinite"/>
+            </circle>
+            <text x="480" y="150" text-anchor="middle" fill="rgba(255,64,96,.6)" font-size="8" font-family="monospace">LDS</text>
+          </g>
+
+          <!-- ── NET CANISTERS ── -->
+          <g onmouseenter="tip(event,'Net Deployment Canisters','6× spring-loaded canisters\nNet: 15×15 m CNT mesh\nCinch mechanism: SMA cable\nDeployment range: 5–50 m')" onmouseleave="hideTip()" style="cursor:pointer">
+            <rect x="404" y="282" width="16" height="12" rx="2" fill="rgba(77,166,255,.2)" stroke="rgba(77,166,255,.8)" stroke-width="1"/>
+            <rect x="424" y="282" width="16" height="12" rx="2" fill="rgba(77,166,255,.2)" stroke="rgba(77,166,255,.8)" stroke-width="1"/>
+            <rect x="444" y="282" width="16" height="12" rx="2" fill="rgba(77,166,255,.2)" stroke="rgba(77,166,255,.8)" stroke-width="1"/>
+            <rect x="500" y="282" width="16" height="12" rx="2" fill="rgba(77,166,255,.2)" stroke="rgba(77,166,255,.8)" stroke-width="1"/>
+            <rect x="520" y="282" width="16" height="12" rx="2" fill="rgba(77,166,255,.2)" stroke="rgba(77,166,255,.8)" stroke-width="1"/>
+            <rect x="540" y="282" width="16" height="12" rx="2" fill="rgba(77,166,255,.2)" stroke="rgba(77,166,255,.8)" stroke-width="1"/>
+            <text x="480" y="308" text-anchor="middle" fill="rgba(77,166,255,.5)" font-size="8" font-family="monospace">NET CANISTERS ×6</text>
+          </g>
+
+          <!-- ── MINING DRILL ── -->
+          <g onmouseenter="tip(event,'Mining Drill Assembly','Type: rotary percussive\nDiameter: 12 cm · Depth: 80 cm\nDrive: 3-phase brushless 1.2 kW\nRegolith auger feed rate: 40 g/s')" onmouseleave="hideTip()" style="cursor:pointer">
+            <rect x="460" y="174" width="16" height="36" rx="2" fill="rgba(176,106,255,.15)" stroke="rgba(176,106,255,.7)" stroke-width="1.1"/>
+            <line x1="468" y1="174" x2="468" y2="210" stroke="rgba(176,106,255,.3)" stroke-width=".5" stroke-dasharray="2 2"/>
+            <text x="468" y="172" text-anchor="middle" fill="rgba(176,106,255,.5)" font-size="8" font-family="monospace">DRILL</text>
+          </g>
+
+          <!-- ── RADAR DISH ── -->
+          <g onmouseenter="tip(event,'Phased Array Radar','Frequency: Ku-band 15 GHz\nBeamwidth: 0.8° · Range: 200 km\nTracking rate: 200 objects/scan\nUpdate rate: 10 Hz')" onmouseleave="hideTip()" style="cursor:pointer">
+            <ellipse cx="480" cy="184" rx="18" ry="7" fill="rgba(0,212,212,.12)" stroke="rgba(0,212,212,.7)" stroke-width="1.1"/>
+            <line x1="480" y1="184" x2="480" y2="200" stroke="rgba(0,212,212,.5)" stroke-width="1"/>
+          </g>
+
+          <!-- ── RADIATORS ── -->
+          <g onmouseenter="tip(event,'Thermal Radiators','Area: 2× 1.2 m² body-mounted\nPeak rejection: 8 kW\nWorking fluid: ammonia loop\nOperating range: −100 to +120 °C')" onmouseleave="hideTip()" style="cursor:pointer">
+            <rect x="402" y="260" width="10" height="30" rx="1" fill="rgba(255,200,70,.1)" stroke="rgba(255,200,70,.5)" stroke-width=".8"/>
+            <rect x="548" y="260" width="10" height="30" rx="1" fill="rgba(255,200,70,.1)" stroke="rgba(255,200,70,.5)" stroke-width=".8"/>
+            <text x="407" y="298" fill="rgba(255,200,70,.4)" font-size="7" font-family="monospace">RAD</text>
+            <text x="553" y="298" fill="rgba(255,200,70,.4)" font-size="7" font-family="monospace">RAD</text>
+          </g>
+
+          <!-- ── LABELS ── -->
+          <text x="480" y="385" text-anchor="middle" fill="rgba(0,200,255,.3)" font-size="9" font-family="monospace" letter-spacing="3">A · R · I · A — BLUEPRINT v4.2.1</text>
+          <!-- Dimension lines -->
+          <line x1="184" y1="410" x2="776" y2="410" stroke="rgba(0,200,255,.2)" stroke-width=".6"/>
+          <line x1="184" y1="406" x2="184" y2="414" stroke="rgba(0,200,255,.3)" stroke-width=".8"/>
+          <line x1="776" y1="406" x2="776" y2="414" stroke="rgba(0,200,255,.3)" stroke-width=".8"/>
+          <text x="480" y="422" text-anchor="middle" fill="rgba(0,200,255,.25)" font-size="8" font-family="monospace">19.2 m (solar tip-to-tip)</text>
+        </svg>
+      </div>
+    </div>
+    <!-- ── end BLUEPRINT ── -->
+
+    <!-- ── QRAS ARMS tab ── -->
+    <div class="tab-view" id="view-qras">
+      <div class="tab-content">
+        <div class="content-title">QRAS — QUADRUPLEX ROBOTIC ARM SYSTEM</div>
+        <div class="content-grid">
+          <div class="info-card">
+            <div class="info-card-title">ARM #1 — FORE PORT</div>
+            <div class="info-row"><span class="info-lbl">Status</span><span class="info-val warn">STANDBY</span></div>
+            <div class="info-row"><span class="info-lbl">Gripper Type</span><span class="info-val">Universal Jaw</span></div>
+            <div class="info-row"><span class="info-lbl">Joint Torque</span><span class="info-val ok">22 N·m</span></div>
+            <div class="info-row"><span class="info-lbl">Extension</span><span class="info-val">0.00 / 3.50 m</span></div>
+            <div class="info-row"><span class="info-lbl">DOF</span><span class="info-val">14</span></div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-title">ARM #2 — FORE STBD</div>
+            <div class="info-row"><span class="info-lbl">Status</span><span class="info-val warn">STANDBY</span></div>
+            <div class="info-row"><span class="info-lbl">Gripper Type</span><span class="info-val">Magnetic Pad</span></div>
+            <div class="info-row"><span class="info-lbl">Joint Torque</span><span class="info-val ok">22 N·m</span></div>
+            <div class="info-row"><span class="info-lbl">Extension</span><span class="info-val">0.00 / 3.50 m</span></div>
+            <div class="info-row"><span class="info-lbl">DOF</span><span class="info-val">14</span></div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-title">ARM #3 — AFT PORT</div>
+            <div class="info-row"><span class="info-lbl">Status</span><span class="info-val warn">STANDBY</span></div>
+            <div class="info-row"><span class="info-lbl">Gripper Type</span><span class="info-val">Soft Conformable</span></div>
+            <div class="info-row"><span class="info-lbl">Joint Torque</span><span class="info-val ok">22 N·m</span></div>
+            <div class="info-row"><span class="info-lbl">Extension</span><span class="info-val">0.00 / 3.50 m</span></div>
+            <div class="info-row"><span class="info-lbl">DOF</span><span class="info-val">14</span></div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-title">ARM #4 — AFT STBD</div>
+            <div class="info-row"><span class="info-lbl">Status</span><span class="info-val warn">STANDBY</span></div>
+            <div class="info-row"><span class="info-lbl">Gripper Type</span><span class="info-val">Universal Jaw</span></div>
+            <div class="info-row"><span class="info-lbl">Joint Torque</span><span class="info-val ok">22 N·m</span></div>
+            <div class="info-row"><span class="info-lbl">Extension</span><span class="info-val">0.00 / 3.50 m</span></div>
+            <div class="info-row"><span class="info-lbl">DOF</span><span class="info-val">14</span></div>
+          </div>
+        </div>
+        <div class="sep"></div>
+        <div class="info-card" style="margin-bottom:10px">
+          <div class="info-card-title">CAPTURE APPROACH PARAMETERS</div>
+          <div class="info-row"><span class="info-lbl">Target Tumble Rate</span><span class="info-val" id="tumbleRate">1.24°/s</span></div>
+          <div class="info-row"><span class="info-lbl">Match Accuracy</span><span class="info-val ok">±0.01°/s</span></div>
+          <div class="info-row"><span class="info-lbl">Hold Force Limit</span><span class="info-val">3,200 N (combined)</span></div>
+          <div class="info-row"><span class="info-lbl">AI Sync Mode</span><span class="info-val ok">TUMBLE-MATCH v3</span></div>
+          <div class="info-row"><span class="info-lbl">Last Capture</span><span class="info-val">MET 012:04:31</span></div>
+        </div>
+        <div class="btn-row">
+          <button class="ctrl-btn green" onclick="logAction('QRAS arms deploying to pre-capture position')">▶ DEPLOY ARMS</button>
+          <button class="ctrl-btn cyan" onclick="logAction('QRAS tumble-match AI activated')">⟳ MATCH TUMBLE</button>
+          <button class="ctrl-btn gold" onclick="logAction('QRAS capture sequence initiated')">✦ CAPTURE SEQ</button>
+          <button class="ctrl-btn" onclick="logAction('QRAS arms returning to stow position')">◼ STOW ARMS</button>
+          <button class="ctrl-btn red" onclick="logAction('QRAS ABORT — arms halted')">✕ ABORT</button>
+        </div>
+      </div>
+    </div>
+    <!-- ── end QRAS ── -->
+
+    <!-- ── LASER tab ── -->
+    <div class="tab-view" id="view-laser">
+      <div class="tab-content">
+        <div class="content-title">LDS — LASER ABLATION TURRET</div>
+        <div class="content-grid">
+          <div class="info-card">
+            <div class="info-card-title">LASER SYSTEM</div>
+            <div class="info-row"><span class="info-lbl">Type</span><span class="info-val">Nd:YAG Q-switched</span></div>
+            <div class="info-row"><span class="info-lbl">Wavelength</span><span class="info-val">1064 nm</span></div>
+            <div class="info-row"><span class="info-lbl">Peak Power</span><span class="info-val ok">50 kW</span></div>
+            <div class="info-row"><span class="info-lbl">Pulse Rep. Freq.</span><span class="info-val">10 Hz</span></div>
+            <div class="info-row"><span class="info-lbl">Pulse Width</span><span class="info-val">10 ns</span></div>
+            <div class="info-row"><span class="info-lbl">Beam Divergence</span><span class="info-val">0.001°</span></div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-title">POINTING &amp; TRACKING</div>
+            <div class="info-row"><span class="info-lbl">Status</span><span class="info-val warn">STANDBY</span></div>
+            <div class="info-row"><span class="info-lbl">Azimuth</span><span class="info-val" id="lazAz">0.00°</span></div>
+            <div class="info-row"><span class="info-lbl">Elevation</span><span class="info-val" id="lazEl">90.00°</span></div>
+            <div class="info-row"><span class="info-lbl">Slew Rate</span><span class="info-val">12°/s max</span></div>
+            <div class="info-row"><span class="info-lbl">Locked Target</span><span class="info-val gold">—</span></div>
+            <div class="info-row"><span class="info-lbl">Range to Target</span><span class="info-val">—</span></div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-title">POWER &amp; THERMAL</div>
+            <div class="info-row"><span class="info-lbl">Power Bus</span><span class="info-val ok">6.0 kW</span></div>
+            <div class="info-row"><span class="info-lbl">Capacitor Bank</span><span class="info-val ok">100%</span></div>
+            <div class="info-row"><span class="info-lbl">Chiller Temp</span><span class="info-val ok">+18 °C</span></div>
+            <div class="info-row"><span class="info-lbl">Head Temp</span><span class="info-val ok">+22 °C</span></div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-title">SESSION STATISTICS</div>
+            <div class="info-row"><span class="info-lbl">Shots Fired</span><span class="info-val">4,812</span></div>
+            <div class="info-row"><span class="info-lbl">Targets Deorbited</span><span class="info-val ok">7</span></div>
+            <div class="info-row"><span class="info-lbl">ΔV Applied (avg)</span><span class="info-val">1.8 m/s</span></div>
+            <div class="info-row"><span class="info-lbl">Power Consumed</span><span class="info-val">284 kWh</span></div>
+          </div>
+        </div>
+        <div class="sep"></div>
+        <div class="btn-row">
+          <button class="ctrl-btn cyan" onclick="logAction('Laser turret acquiring target lock')">◎ ACQUIRE LOCK</button>
+          <button class="ctrl-btn red" onclick="logAction('Laser firing — 50 kW burst sequence')">⚡ FIRE BURST</button>
+          <button class="ctrl-btn green" onclick="logAction('Laser continuous deorbit mode engaged')">▶ DEORBIT MODE</button>
+          <button class="ctrl-btn gold" onclick="logAction('Laser targeting reticle calibrated')">✦ CALIBRATE</button>
+          <button class="ctrl-btn" onclick="logAction('Laser turret safed and stowed')">◼ SAFE &amp; STOW</button>
+        </div>
+      </div>
+    </div>
+    <!-- ── end LASER ── -->
+
+    <!-- ── NET tab ── -->
+    <div class="tab-view" id="view-net">
+      <div class="tab-content">
+        <div class="content-title">NDS — NET DEPLOYMENT SYSTEM</div>
+        <div class="content-grid">
+          <div class="info-card">
+            <div class="info-card-title">NET MAGAZINE</div>
+            <div class="info-row"><span class="info-lbl">Nets Remaining</span><span class="info-val ok">6 / 8</span></div>
+            <div class="info-row"><span class="info-lbl">Net Material</span><span class="info-val">CNT Mesh 15×15 m</span></div>
+            <div class="info-row"><span class="info-lbl">Corner Weights</span><span class="info-val">4× 0.5 kg</span></div>
+            <div class="info-row"><span class="info-lbl">Cinch Mechanism</span><span class="info-val">SMA Cable</span></div>
+            <div class="info-row"><span class="info-lbl">Breaking Load</span><span class="info-val ok">&gt; 5,000 N</span></div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-title">DEPLOYMENT PARAMETERS</div>
+            <div class="info-row"><span class="info-lbl">Current Range</span><span class="info-val" id="netRange">—</span></div>
+            <div class="info-row"><span class="info-lbl">Target Size Est.</span><span class="info-val">~2.4 m</span></div>
+            <div class="info-row"><span class="info-lbl">Canister Pressure</span><span class="info-val ok">12 bar</span></div>
+            <div class="info-row"><span class="info-lbl">Deploy Velocity</span><span class="info-val">8 m/s</span></div>
+            <div class="info-row"><span class="info-lbl">Spread Time</span><span class="info-val">~1.8 s</span></div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-title">CANISTER STATUS</div>
+            <div class="info-row"><span class="info-lbl">Canister 1</span><span class="info-val ok">ARMED</span></div>
+            <div class="info-row"><span class="info-lbl">Canister 2</span><span class="info-val ok">ARMED</span></div>
+            <div class="info-row"><span class="info-lbl">Canister 3</span><span class="info-val ok">ARMED</span></div>
+            <div class="info-row"><span class="info-lbl">Canister 4</span><span class="info-val ok">ARMED</span></div>
+            <div class="info-row"><span class="info-lbl">Canister 5</span><span class="info-val ok">ARMED</span></div>
+            <div class="info-row"><span class="info-lbl">Canister 6</span><span class="info-val ok">ARMED</span></div>
+            <div class="info-row"><span class="info-lbl">Canister 7</span><span class="info-val warn">EXPENDED</span></div>
+            <div class="info-row"><span class="info-lbl">Canister 8</span><span class="info-val warn">EXPENDED</span></div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-title">DISPOSAL SEQUENCE</div>
+            <div class="info-row"><span class="info-lbl">Phase 1</span><span class="info-val">Approach ≤ 30 m</span></div>
+            <div class="info-row"><span class="info-lbl">Phase 2</span><span class="info-val">Net deploy</span></div>
+            <div class="info-row"><span class="info-lbl">Phase 3</span><span class="info-val">Cinch &amp; secure</span></div>
+            <div class="info-row"><span class="info-lbl">Phase 4</span><span class="info-val">Deorbit burn</span></div>
+            <div class="info-row"><span class="info-lbl">Est. Reentry</span><span class="info-val">~18 months</span></div>
+          </div>
+        </div>
+        <div class="sep"></div>
+        <div class="btn-row">
+          <button class="ctrl-btn cyan" onclick="logAction('Net system target lock engaged')">◎ LOCK TARGET</button>
+          <button class="ctrl-btn green" onclick="logAction('Net deploy sequence initiated — canister 1')">▶ DEPLOY NET</button>
+          <button class="ctrl-btn gold" onclick="logAction('SMA cinch cable activating')">⟳ CINCH</button>
+          <button class="ctrl-btn" onclick="logAction('Deorbit burn sequence queued')">↓ DEORBIT BURN</button>
+          <button class="ctrl-btn red" onclick="logAction('Net jettisoned — emergency release')">✕ JETTISON</button>
+        </div>
+      </div>
+    </div>
+    <!-- ── end NET ── -->
+
+    <!-- ── RADAR tab ── -->
+    <div class="tab-view" id="view-radar">
+      <div class="tab-content" style="display:flex;gap:20px">
+        <div style="flex:0 0 auto">
+          <div style="font-size:10px;color:var(--cyan);letter-spacing:.12em;margin-bottom:8px">RADAR DISPLAY</div>
+          <canvas id="radarCanvas" width="280" height="280"></canvas>
+          <div style="font-size:9px;color:var(--txt2);margin-top:6px;text-align:center">
+            Range: 200 km · Update: 10 Hz · Objects tracked: <span id="trackCount" style="color:var(--cyan)">12</span>
+          </div>
+        </div>
+        <div style="flex:1">
+          <div class="content-title">TRACKED OBJECTS</div>
+          <div id="trackTable" style="overflow-y:auto;max-height:220px">
+            <!-- populated by JS -->
+          </div>
+          <div class="sep"></div>
+          <div class="info-card" style="margin-bottom:10px">
+            <div class="info-card-title">CONJUNCTION WARNINGS</div>
+            <div class="info-row"><span class="info-lbl">COSMOS 2251 (frag)</span><span class="info-val crit">TCA: 00:14:22 — 142 m</span></div>
+            <div class="info-row"><span class="info-lbl">SL-16 R/B</span><span class="info-val warn">TCA: 01:02:47 — 890 m</span></div>
+          </div>
+          <div class="btn-row">
+            <button class="ctrl-btn cyan" onclick="logAction('Full radar scan initiated')">◎ FULL SCAN</button>
+            <button class="ctrl-btn green" onclick="logAction('Object catalog synchronized with SpaceTrack')">↺ SYNC CATALOG</button>
+            <button class="ctrl-btn gold" onclick="logAction('Conjunction avoidance maneuver calculated')">⚠ CAM CALC</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- ── end RADAR ── -->
+
+    <!-- ── MINING tab ── -->
+    <div class="tab-view" id="view-mining">
+      <div class="tab-content">
+        <div class="content-title">MDS — MINING &amp; PROCESSING MODULE</div>
+        <div class="content-grid">
+          <div class="info-card">
+            <div class="info-card-title">DRILL ASSEMBLY</div>
+            <div class="info-row"><span class="info-lbl">Status</span><span class="info-val warn">OFFLINE</span></div>
+            <div class="info-row"><span class="info-lbl">Type</span><span class="info-val">Rotary-percussive</span></div>
+            <div class="info-row"><span class="info-lbl">Bit Diameter</span><span class="info-val">12 cm</span></div>
+            <div class="info-row"><span class="info-lbl">Max Depth</span><span class="info-val">80 cm</span></div>
+            <div class="info-row"><span class="info-lbl">Motor Power</span><span class="info-val">1.2 kW</span></div>
+            <div class="info-row"><span class="info-lbl">Feed Rate</span><span class="info-val">40 g/s</span></div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-title">SPECTRAL ANALYZER</div>
+            <div class="info-row"><span class="info-lbl">XRF Detector</span><span class="info-val ok">READY</span></div>
+            <div class="info-row"><span class="info-lbl">LIBS System</span><span class="info-val ok">READY</span></div>
+            <div class="info-row"><span class="info-lbl">Last Sample</span><span class="info-val">MET 012:01:05</span></div>
+            <div class="info-row"><span class="info-lbl">Fe Content</span><span class="info-val ok">18.4%</span></div>
+            <div class="info-row"><span class="info-lbl">Ni Content</span><span class="info-val ok">7.2%</span></div>
+            <div class="info-row"><span class="info-lbl">Pt-group</span><span class="info-val gold">Trace detected</span></div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-title">ORE HOPPERS</div>
+            <div class="info-row"><span class="info-lbl">Hopper A</span><span class="info-val ok">142 / 200 kg</span></div>
+            <div class="mbar"><div class="mbar-fill green" style="width:71%"></div></div>
+            <div class="info-row"><span class="info-lbl">Hopper B</span><span class="info-val ok">198 / 200 kg</span></div>
+            <div class="mbar"><div class="mbar-fill gold" style="width:99%"></div></div>
+            <div class="info-row"><span class="info-lbl">Hopper C</span><span class="info-val ok">88 / 200 kg</span></div>
+            <div class="mbar"><div class="mbar-fill teal" style="width:44%"></div></div>
+            <div class="info-row"><span class="info-lbl">Total Extracted</span><span class="info-val">847 kg (cumulative)</span></div>
+          </div>
+          <div class="info-card">
+            <div class="info-card-title">PROCESSING UNIT</div>
+            <div class="info-row"><span class="info-lbl">Smelter Status</span><span class="info-val warn">COOLING DOWN</span></div>
+            <div class="info-row"><span class="info-lbl">Smelter Temp</span><span class="info-val gold">+420 °C</span></div>
+            <div class="info-row"><span class="info-lbl">Separation Stage</span><span class="info-val">Magnetic + centrifuge</span></div>
+            <div class="info-row"><span class="info-lbl">Refined Output</span><span class="info-val ok">214 kg Fe·Ni alloy</span></div>
+            <div class="info-row"><span class="info-lbl">Waste Slag</span><span class="info-val">633 kg (stored)</span></div>
+          </div>
+        </div>
+        <div class="sep"></div>
+        <div class="btn-row">
+          <button class="ctrl-btn green" onclick="logAction('Mining drill extending to surface contact')">▶ DEPLOY DRILL</button>
+          <button class="ctrl-btn cyan" onclick="logAction('Drill rotation engaged — 120 RPM')">⟳ START DRILL</button>
+          <button class="ctrl-btn gold" onclick="logAction('XRF spectral analysis initiated')">🔬 ANALYZE SAMPLE</button>
+          <button class="ctrl-btn purple" onclick="logAction('Smelter preheat sequence started')">🔥 SMELT</button>
+          <button class="ctrl-btn" onclick="logAction('Drill retracted and stowed')">◼ RETRACT DRILL</button>
+        </div>
+      </div>
+    </div>
+    <!-- ── end MINING ── -->
+
+  </div>
+  <!-- ────────────────── END CENTER PANE ────────────────── -->
+
+  <!-- ════ RIGHT PANE ════ -->
+  <div class="pane" id="rightPane">
+    <div class="pane-hdr">TARGET QUEUE</div>
+    <div id="targetList">
+      <div class="target-item"
+           onmouseenter="tip(event,'COSMOS 1408 (FRAG)','Norad: 49341\nSize: ~2.1 m (RCS)\nAlt: 546.2 km — inc 97.4°\nApproach ΔV: 4.2 m/s\nCapture method: QRAS + Net')"
+           onmouseleave="hideTip()">
+        <div class="target-hdr"><span class="target-id">TGT-001 / COS1408-F</span><span class="target-pri hi">P1</span></div>
+        <div class="target-meta">
+          Size: ~2.1 m · Alt: 546.2 km<br>
+          Method: QRAS · ETA: 00:08:14<br>
+          ΔV req: 4.2 m/s
+        </div>
+      </div>
+      <div class="target-item"
+           onmouseenter="tip(event,'IRIDIUM 33 (FRAG)','Norad: 33442\nSize: ~1.4 m (RCS)\nAlt: 550.8 km — inc 97.5°\nApproach ΔV: 2.1 m/s\nCapture method: Net')"
+           onmouseleave="hideTip()">
+        <div class="target-hdr"><span class="target-id">TGT-002 / IRD33-F</span><span class="target-pri med">P2</span></div>
+        <div class="target-meta">
+          Size: ~1.4 m · Alt: 550.8 km<br>
+          Method: Net · ETA: 00:42:07<br>
+          ΔV req: 2.1 m/s
+        </div>
+      </div>
+      <div class="target-item"
+           onmouseenter="tip(event,'SL-8 ROCKET BODY','Norad: 14920\nSize: ~8.0 m (RCS)\nAlt: 548.1 km — inc 97.3°\nApproach ΔV: 6.8 m/s\nCapture method: Laser deorbit')"
+           onmouseleave="hideTip()">
+        <div class="target-hdr"><span class="target-id">TGT-003 / SL8-RB</span><span class="target-pri hi">P1</span></div>
+        <div class="target-meta">
+          Size: ~8.0 m · Alt: 548.1 km<br>
+          Method: Laser · ETA: 01:15:33<br>
+          ΔV req: 6.8 m/s
+        </div>
+      </div>
+      <div class="target-item"
+           onmouseenter="tip(event,'2019-006C ASTEROID FRAGMENT','Norad: 43987\nSize: ~0.6 m (RCS)\nAlt: 551.4 km — inc 97.6°\nComposition: Fe-Ni (estimated)\nCapture method: Mining extraction')"
+           onmouseleave="hideTip()">
+        <div class="target-hdr"><span class="target-id">TGT-004 / AST-2019C</span><span class="target-pri lo">P3</span></div>
+        <div class="target-meta">
+          Size: ~0.6 m · Alt: 551.4 km<br>
+          Method: Mine · ETA: 02:04:51<br>
+          Composition: Fe-Ni estimate
+        </div>
+      </div>
+    </div>
+
+    <div class="sep"></div>
+    <div class="pane-hdr">MISSION LOG</div>
+    <div id="missionLog">
+      <!-- populated by JS -->
+    </div>
+  </div>
+  <!-- ────────────────── END RIGHT PANE ────────────────── -->
+
+</div>
+<!-- ─── END #app ─── -->
+
+<!-- ═══════════════════════════════════════════════════════════════
+     JAVASCRIPT
+══════════════════════════════════════════════════════════════════ -->
+<script>
+/* ── Stars background ─────────────────────────────────── */
+(function() {
+  const c = document.getElementById('stars');
+  const ctx = c.getContext('2d');
+  let stars = [];
+  function resize() {
+    c.width  = window.innerWidth;
+    c.height = window.innerHeight;
+    stars = Array.from({length: 180}, () => ({
+      x: Math.random() * c.width,
+      y: Math.random() * c.height,
+      r: Math.random() * 1.2 + .2,
+      a: Math.random()
+    }));
+  }
+  function draw() {
+    ctx.clearRect(0,0,c.width,c.height);
+    stars.forEach(s => {
+      s.a += (Math.random() - .5) * .02;
+      s.a = Math.max(.05, Math.min(.9, s.a));
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(180,220,255,${s.a})`;
+      ctx.fill();
+    });
+    requestAnimationFrame(draw);
+  }
+  window.addEventListener('resize', resize);
+  resize();
+  draw();
+})();
+
+/* ── Clock ────────────────────────────────────────────── */
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    String(now.getUTCHours()).padStart(2,'0') + ':' +
+    String(now.getUTCMinutes()).padStart(2,'0') + ':' +
+    String(now.getUTCSeconds()).padStart(2,'0') + ' UTC';
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+/* ── Tooltip ──────────────────────────────────────────── */
+function tip(e, title, body) {
+  const t = document.getElementById('tip');
+  document.getElementById('tip-title').textContent = title;
+  document.getElementById('tip-body').textContent  = body;
+  t.style.display = 'block';
+  const x = Math.min(e.clientX + 14, window.innerWidth  - 280);
+  const y = Math.min(e.clientY + 14, window.innerHeight - 120);
+  t.style.left = x + 'px';
+  t.style.top  = y + 'px';
+}
+function hideTip() { document.getElementById('tip').style.display = 'none'; }
+
+/* ── Tabs ─────────────────────────────────────────────── */
+function setTab(el, id) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-view').forEach(v => v.classList.remove('show'));
+  el.classList.add('active');
+  const view = document.getElementById('view-' + id);
+  if (view) view.classList.add('show');
+  if (id === 'radar') initRadar();
+}
+
+/* ── Live telemetry simulation ────────────────────────── */
+function rand(min, max) { return Math.random() * (max - min) + min; }
+function randInt(min, max) { return Math.floor(rand(min, max)); }
+
+let xenon = 63, rcs = 91, cg = 78, bat = 84;
+let pvPower = 17.8, coreT = 38;
+
+function updateTelemetry() {
+  xenon   = Math.max(0,  Math.min(100, xenon   + rand(-.05,.02)));
+  rcs     = Math.max(0,  Math.min(100, rcs     + rand(-.02,.01)));
+  cg      = Math.max(0,  Math.min(100, cg      + rand(-.03,.01)));
+  bat     = Math.max(10, Math.min(100, bat     + rand(-.08,.06)));
+  pvPower = Math.max(14, Math.min(18.2, pvPower + rand(-.05,.05)));
+  coreT   = Math.max(20, Math.min(65,  coreT   + rand(-.3,.3)));
+
+  const xeP = xenon.toFixed(0);
+  document.getElementById('xeVal').textContent  = xeP + '%';
+  document.getElementById('xeBar').style.width  = xeP + '%';
+  document.getElementById('hdXenon').innerHTML  = xeP + '<span style="font-size:9px">%</span>';
+
+  document.getElementById('rcsVal').textContent = rcs.toFixed(0) + '%';
+  document.getElementById('rcsBar').style.width = rcs.toFixed(0) + '%';
+  document.getElementById('cgVal').textContent  = cg.toFixed(0) + '%';
+  document.getElementById('cgBar').style.width  = cg.toFixed(0) + '%';
+
+  document.getElementById('batVal').textContent = bat.toFixed(0) + '%';
+  document.getElementById('batBar').style.width = bat.toFixed(0) + '%';
+
+  document.getElementById('pvOut').textContent  = pvPower.toFixed(1) + ' kW';
+  document.getElementById('pvBar').style.width  = ((pvPower/18.2)*100).toFixed(0) + '%';
+
+  const tSign = coreT >= 0 ? '+' : '';
+  document.getElementById('coreTemp').textContent = tSign + coreT.toFixed(0) + ' °C';
+  document.getElementById('tempBar').style.width  = ((coreT/80)*100).toFixed(0) + '%';
+
+  // Altitude drift
+  const alt = (549.4 + rand(-.08,.08)).toFixed(1);
+  document.getElementById('hdAlt').innerHTML = alt + '<span style="font-size:9px"> km</span>';
+
+  // Velocity
+  const vel = (7614 + rand(-2,2)).toFixed(0);
+  document.getElementById('hdVel').innerHTML = Number(vel).toLocaleString() + '<span style="font-size:9px"> m/s</span>';
+
+  // Tumble rate on QRAS tab
+  const tr = document.getElementById('tumbleRate');
+  if (tr) tr.textContent = (1.24 + rand(-.02,.02)).toFixed(2) + '°/s';
+
+  // Lazy update laser pointing
+  const az = document.getElementById('lazAz');
+  const el = document.getElementById('lazEl');
+  if (az) az.textContent = (rand(-.5,.5)).toFixed(2) + '°';
+  if (el) el.textContent = (90 + rand(-.3,.3)).toFixed(2) + '°';
+}
+setInterval(updateTelemetry, 2500);
+
+/* ── Mission Log ──────────────────────────────────────── */
+const logData = [
+  { t: '00:00:01', msg: 'System boot — all modules nominal',         cls: 'ok'   },
+  { t: '00:02:14', msg: 'Ion thrusters nominal — ISP 3,024 s',       cls: 'ok'   },
+  { t: '00:05:33', msg: 'Phased array radar online — 12 tracks',     cls: 'ok'   },
+  { t: '00:06:47', msg: 'TGT-001 acquired — approach initiated',     cls: ''     },
+  { t: '00:08:22', msg: 'Conjunction warning — COSMOS frag 142 m',   cls: 'warn' },
+  { t: '00:09:01', msg: 'QRAS arms deployed to pre-capture pos.',    cls: ''     },
+  { t: '00:11:14', msg: 'Xenon below 65% — efficiency nominal',      cls: 'warn' },
+  { t: '00:12:04', msg: 'TGT-001 captured — QRAS secure',           cls: 'ok'   },
+];
+
+function renderLog() {
+  const container = document.getElementById('missionLog');
+  container.innerHTML = '';
+  [...logData].reverse().forEach(e => {
+    const d = document.createElement('div');
+    d.className = 'log-entry';
+    d.innerHTML = `<span class="log-time">${e.t}</span><span class="log-msg ${e.cls}">${e.msg}</span>`;
+    container.appendChild(d);
+  });
+}
+renderLog();
+
+function logAction(msg) {
+  const now = new Date();
+  const ts = String(now.getUTCHours()).padStart(2,'0') + ':' +
+             String(now.getUTCMinutes()).padStart(2,'0') + ':' +
+             String(now.getUTCSeconds()).padStart(2,'0');
+  logData.push({ t: ts, msg: msg, cls: '' });
+  if (logData.length > 40) logData.shift();
+  renderLog();
+}
+
+/* ── Radar ────────────────────────────────────────────── */
+let radarInit = false;
+let radarObjects = [];
+let sweepAngle = 0;
+
+function initRadar() {
+  if (radarInit) return;
+  radarInit = true;
+
+  radarObjects = Array.from({length: 14}, () => ({
+    r:  rand(20, 130),
+    a:  rand(0, Math.PI*2),
+    da: rand(-.002, .002),
+    hit: false,
+    bright: 0
+  }));
+
+  const canvas = document.getElementById('radarCanvas');
+  const ctx    = canvas.getContext('2d');
+  const cx = 140, cy = 140, maxR = 130;
+
+  function drawRadar() {
+    ctx.clearRect(0, 0, 280, 280);
+
+    // Background rings
+    [.25,.5,.75,1].forEach(f => {
+      ctx.beginPath();
+      ctx.arc(cx, cy, maxR * f, 0, Math.PI*2);
+      ctx.strokeStyle = 'rgba(0,200,255,.12)';
+      ctx.lineWidth = .8;
+      ctx.stroke();
+    });
+
+    // Cross hairs
+    ctx.strokeStyle = 'rgba(0,200,255,.1)';
+    ctx.lineWidth = .6;
+    ctx.beginPath(); ctx.moveTo(cx - maxR, cy); ctx.lineTo(cx + maxR, cy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx, cy - maxR); ctx.lineTo(cx, cy + maxR); ctx.stroke();
+
+    // Sweep cone
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(sweepAngle);
+    const g = ctx.createLinearGradient(0, 0, maxR, 0);
+    g.addColorStop(0, 'rgba(0,200,255,.22)');
+    g.addColorStop(1, 'rgba(0,200,255,0)');
+    ctx.beginPath();
+    ctx.moveTo(0,0);
+    ctx.arc(0, 0, maxR, -0.25, 0);
+    ctx.closePath();
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.restore();
+
+    sweepAngle += .03;
+    if (sweepAngle > Math.PI*2) sweepAngle -= Math.PI*2;
+
+    // Check which objects are hit by sweep
+    radarObjects.forEach(o => {
+      o.a += o.da;
+      const diff = ((o.a - sweepAngle) % (Math.PI*2) + Math.PI*2) % (Math.PI*2);
+      if (diff < .12) o.bright = 1;
+      else o.bright = Math.max(0, o.bright - .015);
+    });
+
+    // Draw objects
+    radarObjects.forEach(o => {
+      if (o.bright <= 0) return;
+      const x = cx + Math.cos(o.a) * o.r;
+      const y = cy + Math.sin(o.a) * o.r;
+      ctx.beginPath();
+      ctx.arc(x, y, 3, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(0,229,160,${o.bright})`;
+      ctx.fill();
+      if (o.bright > .5) {
+        ctx.beginPath();
+        ctx.arc(x, y, 6, 0, Math.PI*2);
+        ctx.strokeStyle = `rgba(0,229,160,${o.bright * .4})`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+    });
+
+    // Center dot
+    ctx.beginPath();
+    ctx.arc(cx, cy, 4, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(0,200,255,.9)';
+    ctx.fill();
+
+    // Range labels
+    ctx.fillStyle = 'rgba(0,200,255,.35)';
+    ctx.font = '7px monospace';
+    ctx.fillText('50km',  cx + maxR*.25 + 2, cy - 2);
+    ctx.fillText('100km', cx + maxR*.5  + 2, cy - 2);
+    ctx.fillText('150km', cx + maxR*.75 + 2, cy - 2);
+    ctx.fillText('200km', cx + maxR     - 16, cy - 2);
+
+    requestAnimationFrame(drawRadar);
+  }
+  drawRadar();
+
+  // Tracked object table
+  const table = document.getElementById('trackTable');
+  const objects = [
+    { id:'COS1408-F',  alt: 546.2, rv: -2.1, size:'2.1 m',  type:'Debris' },
+    { id:'IRD33-F',    alt: 550.8, rv: 1.4,  size:'1.4 m',  type:'Debris' },
+    { id:'SL8-RB',     alt: 548.1, rv: -0.3, size:'8.0 m',  type:'R/B'    },
+    { id:'AST-2019C',  alt: 551.4, rv: 3.2,  size:'0.6 m',  type:'Asteroid'},
+    { id:'COS252-F1',  alt: 544.9, rv: 0.8,  size:'0.3 m',  type:'Debris' },
+    { id:'SL16-RB',    alt: 547.3, rv: -1.2, size:'9.1 m',  type:'R/B'    },
+    { id:'FENGYN-D',   alt: 553.0, rv: 2.4,  size:'1.8 m',  type:'Debris' },
+  ];
+  table.innerHTML = `<div style="display:grid;grid-template-columns:110px 65px 60px 55px 50px;font-size:9px;color:var(--txt2);border-bottom:1px solid var(--line);padding-bottom:3px;margin-bottom:4px">
+    <span>ID</span><span>ALT (km)</span><span>REL V</span><span>SIZE</span><span>TYPE</span>
+  </div>` + objects.map(o => `
+    <div style="display:grid;grid-template-columns:110px 65px 60px 55px 50px;font-size:9px;padding:2px 0;border-bottom:1px solid rgba(0,200,255,.05)">
+      <span style="color:var(--cyan)">${o.id}</span>
+      <span>${o.alt}</span>
+      <span style="color:${o.rv<0?'var(--red)':'var(--green)'}">${o.rv>0?'+':''}${o.rv} m/s</span>
+      <span>${o.size}</span>
+      <span style="color:var(--txt2)">${o.type}</span>
+    </div>`).join('');
+}
+
+/* ── Ctrl+btn purple ──────────────────────────────────── */
+document.querySelectorAll('.ctrl-btn.purple').forEach(b => {
+  b.style.setProperty('border-color','var(--purple)');
+  b.style.setProperty('color','var(--purple)');
+});
+</script>
+</body>
+</html>
