@@ -887,7 +887,7 @@ body::before {
           <button class="ctrl-btn green" onclick="logAction('Mining drill extending to surface contact')">▶ DEPLOY DRILL</button>
           <button class="ctrl-btn cyan" onclick="logAction('Drill rotation engaged — 120 RPM')">⟳ START DRILL</button>
           <button class="ctrl-btn gold" onclick="logAction('XRF spectral analysis initiated')">🔬 ANALYZE SAMPLE</button>
-          <button class="ctrl-btn purple" onclick="logAction('Smelter pre-heat sequence started')">🔥 SMELT</button>
+          <button class="ctrl-btn purple" onclick="logAction('Smelter preheat sequence started')">🔥 SMELT</button>
           <button class="ctrl-btn" onclick="logAction('Drill retracted and stowed')">◼ RETRACT DRILL</button>
         </div>
       </div>
@@ -1153,9 +1153,6 @@ function initRadar() {
     ctx.beginPath(); ctx.moveTo(cx, cy - maxR); ctx.lineTo(cx, cy + maxR); ctx.stroke();
 
     // Sweep cone
-    const sweepGrad = ctx.createConicalGradient
-      ? null  // fallback
-      : null;
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(sweepAngle);
